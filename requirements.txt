@@ -1,0 +1,10 @@
+# Este proyecto no tiene dependencias de pip — usa únicamente librería
+# estándar de Python (os, subprocess, glob, time, re, hashlib) y `pya`,
+# la API interna de scripting de KLayout (se ejecuta dentro de KLayout,
+# no se instala por separado).
+#
+# Requisitos reales del sistema (ver README.md):
+#   - KLayout con soporte de macros Python (pya)
+#   - Windows con WSL (Windows Subsystem for Linux) habilitado
+#   - MAGIC VLSI instalado dentro de WSL y accesible como `magic` en el PATH
+#   - Un PDK con archivo .magicrc válido
