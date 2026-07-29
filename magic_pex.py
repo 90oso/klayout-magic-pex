@@ -2,7 +2,7 @@
 # FIXED VERSION v6
 #
 #   Problema resuelto: MAGIC ("path sys" / "addpath") no maneja correctamente
-#   rutas WSL con espacios (ej. /mnt/c/Users/Rafael Batista/KLayout), sin
+#   rutas WSL con espacios, sin
 #   importar como se escapen (\, {}, etc.).
 #
 #   Solucion: si PDK_DIR (convertido a ruta WSL) contiene espacios, el
@@ -45,11 +45,6 @@ def tcl_brace(path):
 def safe_name_from_path(path):
     """
     Genera nombre corto para symlink PERO preserva extensión.
-
-    Ej:
-    /mnt/c/Users/Rafael Batista/KLayout/_tmp_pex/magic_script.tcl
-    →
-    magic_script_abcdef12.tcl
     """
 
     import hashlib
