@@ -1,4 +1,4 @@
-54# Magic PEX — Macro KLayout para Extracción de Parásitos vía MAGIC VLSI
+# Magic PEX — Macro KLayout para Extracción de Parásitos vía MAGIC VLSI
 
 ![Status](https://img.shields.io/badge/status-desarrollo%20activo-yellow)
 ![Stack](https://img.shields.io/badge/stack-Python%20%7C%20KLayout%20%7C%20MAGIC%20VLSI-informational)
