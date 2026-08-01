@@ -6,7 +6,7 @@
 
 Macro de Python para KLayout que invoca a **MAGIC VLSI** (dentro de WSL) en modo headless para ejecutar **LVS** (Layout vs. Schematic) y **PEX** (extracción de parásitos) sobre el layout activo, sin salir de KLayout.
 
-Trabajo de grado desarrollado en el marco de la beca SENACYT de formación en semiconductores, en colaboración con el **Centro de Investigación y Desarrollo Industrial (CIDESI)**.
+Trabajo de grado desarrollado en el marco de la beca SENACYT de formación en semiconductores, en colaboración con el **Centro de Ingeniería y Desarrollo Industrial (CIDESI)**.
 
 >ste repositorio contiene únicamente la herramienta (el macro). No incluye PDKs, layouts de producción ni datos de proceso de CIDESI, que permanecen confidenciales.
 
