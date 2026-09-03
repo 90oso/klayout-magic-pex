@@ -1,16 +1,9 @@
 # magic_pex.py — Macro KLayout para extraccion de parasitos
-# FIXED VERSION v6
+# FIXED VERSION v7
 #
 #   Problema resuelto: MAGIC ("path sys" / "addpath") no maneja correctamente
-#   rutas WSL con espacios (ej. /mnt/c/Users/Rafael Batista/KLayout), sin
-#   importar como se escapen (\, {}, etc.).
-#
-#   Solucion: si PDK_DIR (convertido a ruta WSL) contiene espacios, el
-#   macro crea automaticamente un symlink DENTRO de WSL hacia una ruta
-#   sin espacios (/tmp/cidesi_pdk_link), y usa esa ruta para
-#   "path sys" / "addpath". Todo esto ocurre de forma transparente,
-#   sin configuracion manual ni rutas hardcodeadas: el nombre del
-#   symlink se deriva del nombre de PDK_DIR.
+#   rutas WSL con espacios. Además, el directorio del PDK se detecta
+#   dinámicamente desde la carpeta 'salt' de KLayout según la tecnología activa.
 
 import pya
 import subprocess
@@ -20,7 +13,6 @@ import time
 import re
 
 MACRO_DIR = os.path.dirname(os.path.abspath(__file__))
-PDK_DIR   = os.path.dirname(MACRO_DIR)
 
 
 # ── Windows → WSL ────────────────────────────────────────────
@@ -41,58 +33,28 @@ def tcl_brace(path):
 
 
 # ── Symlink automatico sin espacios ──────────────────────────
-
 def safe_name_from_path(path):
-    """
-    Genera nombre corto para symlink PERO preserva extensión.
-
-    Ej:
-    /mnt/c/Users/Rafael Batista/KLayout/_tmp_pex/magic_script.tcl
-    →
-    magic_script_abcdef12.tcl
-    """
-
     import hashlib
-
     filename = os.path.basename(path.rstrip("/")) or "pdk"
-
     stem, ext = os.path.splitext(filename)
-
-    stem = re.sub(
-        r"[^A-Za-z0-9_-]",
-        "_",
-        stem
-    ).lower()
-
-    h = hashlib.md5(
-        path.encode("utf-8")
-    ).hexdigest()[:8]
-
+    stem = re.sub(r"[^A-Za-z0-9_-]", "_", stem).lower()
+    h = hashlib.md5(path.encode("utf-8")).hexdigest()[:8]
     return f"{stem}_{h}{ext}"
 
 
 def ensure_wsl_path_without_spaces(wsl_path):
-    """
-    Si wsl_path NO tiene espacios, lo devuelve tal cual.
-    Si tiene espacios, crea (o reutiliza) un symlink en /tmp/ sin espacios
-    que apunte a wsl_path, y devuelve la ruta del symlink.
-
-    El symlink se crea ejecutando 'ln -sf' dentro de WSL via wsl.exe,
-    por lo que no requiere abrir una terminal manualmente.
-    """
     if " " not in wsl_path:
         return wsl_path
 
     link_name = safe_name_from_path(wsl_path)
     link_path = f"/tmp/{link_name}"
 
-    # Crear/actualizar el symlink dentro de WSL (idempotente: -f sobreescribe)
     cmd = ["wsl.exe", "ln", "-sfn", wsl_path, link_path]
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
 
     if result.returncode != 0:
         print(f"[Magic PEX] ADVERTENCIA: no se pudo crear symlink: {result.stderr}")
-        return wsl_path  # fallback: intentar con la ruta original
+        return wsl_path  
 
     print(f"[Magic PEX] Symlink creado: {link_path} -> {wsl_path}")
     return link_path
@@ -115,11 +77,6 @@ def find_magicrc(pdk_dir):
 
 # ── Fix magicrc ───────────────────────────────────────────────
 def fix_magicrc(original_path, pdk_dir, pdk_dir_safe_wsl):
-    """
-    Genera <nombre>_local.magicrc con:
-      path sys +/ruta/sin/espacios   (symlink si era necesario)
-      addpath /ruta/sin/espacios
-    """
     base = os.path.basename(original_path)
     stem = base.replace("_local.magicrc", "").replace(".magicrc", "")
     local_path = os.path.join(os.path.dirname(original_path), f"{stem}_local.magicrc")
@@ -130,15 +87,12 @@ def fix_magicrc(original_path, pdk_dir, pdk_dir_safe_wsl):
     new_lines = []
     for line in lines:
         stripped = line.strip()
-
         if stripped.startswith("path sys"):
             new_lines.append(f"path sys +{pdk_dir_safe_wsl}\n")
             continue
-
         if stripped.startswith("addpath"):
             new_lines.append(f"addpath {pdk_dir_safe_wsl}\n")
             continue
-
         new_lines.append(line)
 
     with open(local_path, 'w') as f:
@@ -175,7 +129,6 @@ quit
 
 # ── PEX TCL ─────────────────────────────────────────────────
 def build_pex_tcl(gds_path, cell_name, out_spice, work_dir):
-
     flat_cell = f"{cell_name}-pex"
 
     return f"""
@@ -183,38 +136,43 @@ drc off
 crashbackups stop
 
 gds read {tcl_brace(gds_path)}
-
 load {cell_name}
-
 flatten {flat_cell}
-
 load {flat_cell}
-
 select top cell
 
+# 1. Forzar umbrales al extremo (1 miliohmio)
+extresist threshold 1
+extresist minres 1
+extresist simplify off
+
+# 2. Extracción base (capacitancias y conectividad)
 extract all
 
-extresist tolerance 10
-extresist
+# 3. EL PASO CLAVE: Generar la base de datos de nodos (.sim y .nodes)
+ext2sim labels on
+ext2sim
 
-ext2spice lvs
-ext2spice cthresh 0.01
+# 4. Ahora sí, extraer resistencias (usará los archivos creados en el paso 3)
+extresist all
+
+# 5. Configurar y volcar a SPICE
+ext2spice format spice3
+ext2spice cthresh 0
+ext2spice rthresh 0
 ext2spice extresist on
-
 ext2spice -o {tcl_brace(out_spice)}
 
 puts "PEX completado: {flat_cell}"
-
 quit
 """
 
 
 # ── Ejecutar MAGIC ──────────────────────────────────────────
 def run_magic(tcl_script, magicrc, work_dir):
-    tmp_dir = os.path.join(PDK_DIR, "_tmp_pex")
-    os.makedirs(tmp_dir, exist_ok=True)
-
-    tcl_win = os.path.join(tmp_dir, f"magic_script_{int(time.time())}.tcl")
+    # Escribir el script en el work_dir evita problemas de permisos
+    # y centraliza la generación de archivos del layout.
+    tcl_win = os.path.join(work_dir, f"magic_script_{int(time.time())}.tcl")
 
     with open(tcl_win, "w", newline="\n") as f:
         f.write(tcl_script)
@@ -222,8 +180,6 @@ def run_magic(tcl_script, magicrc, work_dir):
     tcl_wsl     = to_wsl_path(tcl_win)
     magicrc_wsl = to_wsl_path(magicrc)
 
-    # El .tcl y el .magicrc tambien pueden tener espacios en su ruta
-    # (estan dentro de PDK_DIR). Los pasamos por el mismo mecanismo.
     tcl_wsl_safe     = ensure_wsl_path_without_spaces(tcl_wsl)
     magicrc_wsl_safe = ensure_wsl_path_without_spaces(magicrc_wsl)
 
@@ -237,12 +193,12 @@ def run_magic(tcl_script, magicrc, work_dir):
         )
         return result.stdout, result.stderr, result.returncode
     finally:
-        os.unlink(tcl_win)
+        if os.path.exists(tcl_win):
+            os.unlink(tcl_win)
 
 
 # ── MAIN ────────────────────────────────────────────────────
 def main():
-
     app = pya.Application.instance()
     mw  = app.main_window()
     cv  = mw.current_view()
@@ -262,17 +218,48 @@ def main():
         pya.MessageBox.warning("Magic PEX", "GDS no válido.", pya.MessageBox.Ok)
         return
 
-    magicrc_original = find_magicrc(PDK_DIR)
+    # ── Detectar dinámicamente el directorio del PDK en 'salt' ──
+    tech_name = layout.technology().name
+    app_data  = app.application_data_path()
+    salt_dir  = os.path.join(app_data, "salt")
 
-    if not magicrc_original:
-        pya.MessageBox.warning("Magic PEX", "No se encontró .magicrc original en:\n" + PDK_DIR, pya.MessageBox.Ok)
+    pdk_dir = None
+    magicrc_original = None
+
+    if os.path.exists(salt_dir):
+        # 1. Intentar con el nombre exacto de la tecnología activa
+        if tech_name and tech_name != "(Default)":
+            tech_path = os.path.join(salt_dir, tech_name)
+            if os.path.isdir(tech_path):
+                m = find_magicrc(tech_path)
+                if m:
+                    pdk_dir = tech_path
+                    magicrc_original = m
+        
+        # 2. Si no se encontró, iterar sobre las carpetas de 'salt'
+        if not pdk_dir:
+            for f in os.listdir(salt_dir):
+                folder_path = os.path.join(salt_dir, f)
+                if os.path.isdir(folder_path):
+                    m = find_magicrc(folder_path)
+                    if m:
+                        pdk_dir = folder_path
+                        magicrc_original = m
+                        break
+
+    if not pdk_dir or not magicrc_original:
+        pya.MessageBox.warning(
+            "Magic PEX", 
+            f"No se encontró .magicrc original en salt.\n(Tecnología actual: {tech_name})", 
+            pya.MessageBox.Ok
+        )
         return
 
-    # ── Resolver PDK_DIR a una ruta WSL sin espacios (symlink si hace falta) ──
-    pdk_dir_wsl      = to_wsl_path(PDK_DIR)
+    # ── Resolver pdk_dir a una ruta WSL sin espacios ──
+    pdk_dir_wsl      = to_wsl_path(pdk_dir)
     pdk_dir_safe_wsl = ensure_wsl_path_without_spaces(pdk_dir_wsl)
 
-    magicrc = fix_magicrc(magicrc_original, PDK_DIR, pdk_dir_safe_wsl)
+    magicrc = fix_magicrc(magicrc_original, pdk_dir, pdk_dir_safe_wsl)
 
     gds_dir  = os.path.dirname(gds_path)
     work_dir = os.path.join(gds_dir, f"{cell_name}_magic_work")
@@ -285,13 +272,12 @@ def main():
     out_lvs_wsl = to_wsl_path(out_lvs)
     out_pex_wsl = to_wsl_path(out_pex)
 
-    # GDS y salidas SPICE tambien pueden estar bajo rutas con espacios
     gds_wsl_safe     = ensure_wsl_path_without_spaces(gds_wsl)
     out_lvs_wsl_safe = ensure_wsl_path_without_spaces(out_lvs_wsl)
     out_pex_wsl_safe = ensure_wsl_path_without_spaces(out_pex_wsl)
 
     print(f"[Magic PEX] Celda: {cell_name}")
-    print(f"[Magic PEX] PDK_DIR: {PDK_DIR}")
+    print(f"[Magic PEX] PDK_DIR detectado: {pdk_dir}")
     print(f"[Magic PEX] PDK_DIR (WSL, seguro): {pdk_dir_safe_wsl}")
     print(f"[Magic PEX] magicrc original: {magicrc_original}")
     print(f"[Magic PEX] magicrc usado: {magicrc}")
