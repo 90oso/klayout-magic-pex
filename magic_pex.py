@@ -149,11 +149,9 @@ extresist simplify off
 # 2. Extracción base (capacitancias y conectividad)
 extract all
 
-# 3. EL PASO CLAVE: Generar la base de datos de nodos (.sim y .nodes)
+# 3. Generar la base de datos de nodos (.sim y .nodes)
 ext2sim labels on
 ext2sim
-
-# 4. Ahora sí, extraer resistencias (usará los archivos creados en el paso 3)
 extresist all
 
 # 5. Configurar y volcar a SPICE
