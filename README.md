@@ -175,8 +175,13 @@ El bloque denominado `LVS` dentro del macro genera un **netlist SPICE preparado 
 La versión actual **no realiza por sí sola la comparación LVS final con un schematic externo** mediante herramientas como Netgen.
 
 Flujo simplificado:
-
-<img width="1086" height="1448" alt="image" src="https://github.com/user-attachments/assets/ab572ef1-b604-42ca-b716-a96ec0b2aa17" />
+<p align="center">
+  <img
+    src="https://github.com/user-attachments/assets/ab572ef1-b604-42ca-b716-a96ec0b2aa17"
+    alt="Flujo de detección del PDK"
+    width="480"
+  />
+</p>
 
 
 El resultado se guarda junto al GDS original:
@@ -192,7 +197,13 @@ La extracción PEX utiliza el mecanismo de resistencia integrado en versiones re
 
 Flujo simplificado:
 
-<img width="1086" height="1448" alt="image" src="https://github.com/user-attachments/assets/41cc07e9-001b-4002-878c-912637a436d1" />
+<p align="center">
+  <img
+    src="https://github.com/user-attachments/assets/41cc07e9-001b-4002-878c-912637a436d1"
+    alt="Flujo de detección del PDK"
+    width="480"
+  />
+</p>
 
 Durante el proceso se generan:
 
@@ -252,7 +263,15 @@ CIDESI_CM05
 `CIDESI_TFS20` permanece como trabajo futuro mientras se completa su `.magicrc` y su integración con MAGIC.
 
 La selección se realiza de la siguiente manera:
-<img width="1086" height="1448" alt="image" src="https://github.com/user-attachments/assets/a3b86c6f-c8c4-4404-9756-e6723367c4dc" />
+
+<p align="center">
+  <img
+    src="https://github.com/user-attachments/assets/a3b86c6f-c8c4-4404-9756-e6723367c4dc"
+    alt="Flujo de detección del PDK"
+    width="480"
+  />
+</p>
+
 ###  Estructura del PDK
 
 Si no existe una coincidencia exacta, el fallback se utiliza únicamente cuando existe **un solo PDK con `.magicrc` válido**.
