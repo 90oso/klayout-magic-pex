@@ -118,7 +118,13 @@ Este mecanismo se utiliza cuando es necesario para:
 
 ## Flujo de ejecución
 
-<img width="1086" height="1448" alt="flujo" src="https://github.com/user-attachments/assets/817a9b37-65ff-480d-bad6-5ef4a0f52168" />
+<p align="center">
+  <img
+    src="https://github.com/user-attachments/assets/817a9b37-65ff-480d-bad6-5ef4a0f52168"
+    alt="Flujo de detección del PDK"
+    width="480"
+  />
+</p>
 
 
 ## GDS de prueba
